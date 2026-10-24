@@ -272,7 +272,7 @@ function dimensoes(src){
 }
 async function fotosDaPasta(){
   const pedidos = [];
-  for (let i = 1; i <= CONFIG.totalFotos; i++) pedidos.push(dimensoes(`fotos/${i}.${CONFIG.extensao}`));
+  for (let i = 1; i <= CONFIG.totalFotos; i++) pedidos.push(dimensoes(`${i}.${CONFIG.extensao}`));
   return (await Promise.all(pedidos)).filter(Boolean);
 }
 function montarTrilha(el, itens, offset){
