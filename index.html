@@ -33,20 +33,21 @@
   header p{color:var(--muted);margin-top:12px;font-size:1.05rem}
 
   /* ---------- Correnteza de fotos ---------- */
-  .river{position:relative;overflow:hidden;padding:14px 0;
-    -webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);
-            mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent)}
-  .track{display:flex;gap:18px;width:max-content;padding:10px 0;animation:flow var(--dur,60s) linear infinite}
-  .river:hover .track,.river.paused .track{animation-play-state:paused}
+  .river{position:relative;overflow:hidden;padding:14px 0}
+  .river::before,.river::after{content:"";position:absolute;top:0;bottom:0;width:9%;z-index:2;pointer-events:none}
+  .river::before{left:0;background:linear-gradient(90deg,var(--night),transparent)}
+  .river::after{right:0;background:linear-gradient(270deg,var(--night),transparent)}
+  .track{display:flex;gap:18px;width:max-content;padding:10px 0;animation:flow var(--dur,60s) linear infinite;will-change:transform;backface-visibility:hidden}
+  @media (hover:hover){.river:hover .track{animation-play-state:paused}}
   .track.b{--dur:80s;margin-left:-140px}
   @keyframes flow{from{transform:translateX(0)}to{transform:translateX(-50%)}}
   .card{flex:none;height:clamp(200px,32vw,320px);aspect-ratio:3/4;border-radius:18px;overflow:hidden;border:0;padding:0;background:var(--plum);
-    box-shadow:0 14px 34px #0009;transition:transform .35s ease}
+    box-shadow:0 14px 34px #0009}
   .card.wide{aspect-ratio:4/3}
   .track.b .card{height:clamp(150px,24vw,230px)}
   .card:nth-child(3n+1){transform:rotate(-1.4deg)}
   .card:nth-child(3n+2){transform:rotate(1.1deg) translateY(8px)}
-  .card:hover{transform:scale(1.05) rotate(0)}
+  @media (hover:hover){.card{transition:transform .35s ease}.card:hover{transform:scale(1.05) rotate(0)}}
   .card img{width:100%;height:100%;object-fit:cover;display:block}
   .card.ph{display:grid;place-items:center;font-size:3rem;color:var(--rose);background:linear-gradient(145deg,var(--wine),var(--plum))}
 
@@ -106,7 +107,8 @@
 
   @media (prefers-reduced-motion:reduce){
     .track{animation:none}
-    .river{overflow-x:auto;-webkit-mask-image:none;mask-image:none}
+    .river{overflow-x:auto}
+    .river::before,.river::after{display:none}
     .float-heart{animation-duration:.01s}
     #uniao.on{animation-duration:2s}
     #uniao.on .vermelho,#uniao.on .azul{animation:none;opacity:0}
@@ -177,7 +179,9 @@ const CONFIG = {
   subtitulo: "Nossa história começa a ser contada hoje.",
   // Data de início (ano, mês, dia). Mês começa em 0: janeiro = 0, outubro = 9.
   inicio: { ano: 2026, mes: 9, dia: 24 },
-  // Até quantas fotos procurar na pasta "fotos" (1.jpg, 2.jpg, 3.jpg ...)
+  // Até quantas fotos procurar (1.jpg, 2.jpg, 3.jpg ...; as miniaturas são m1.jpg, m2.jpg ...)
+  // Pasta das fotos. Deixe vazio ("") se as fotos estão ao lado do index.html.
+  pasta: "",
   totalFotos: 100,
   extensao: "jpg",
   motivosTitulo: "Por que eu te escolho",
@@ -271,8 +275,15 @@ function dimensoes(src){
   });
 }
 async function fotosDaPasta(){
+  const base = CONFIG.pasta ? CONFIG.pasta.replace(/\/?$/, "/") : "";
   const pedidos = [];
-  for (let i = 1; i <= CONFIG.totalFotos; i++) pedidos.push(dimensoes(`${i}.${CONFIG.extensao}`));
+  for (let i = 1; i <= CONFIG.totalFotos; i++){
+    const grande = `${base}${i}.${CONFIG.extensao}`;
+    pedidos.push((async () => {
+      const t = await dimensoes(`${base}m${i}.${CONFIG.extensao}`) || await dimensoes(grande);
+      return t ? { src: grande, thumb: t.src, w: t.w, h: t.h } : null;
+    })());
+  }
   return (await Promise.all(pedidos)).filter(Boolean);
 }
 function montarTrilha(el, itens, offset){
@@ -285,7 +296,7 @@ function montarTrilha(el, itens, offset){
     b.className = "card" + (f && f.w > f.h ? " wide" : "");
     if (f){
       const img = document.createElement("img");
-      img.src = f.src; img.alt = "Foto nossa"; img.loading = "lazy"; img.draggable = false;
+      img.src = f.thumb || f.src; img.alt = "Foto nossa"; img.decoding = "async"; img.draggable = false;
       b.appendChild(img);
       b.addEventListener("click", () => abrir(f));
     } else { b.classList.add("ph"); b.textContent = "♥"; b.tabIndex = -1; }
